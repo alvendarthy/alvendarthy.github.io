@@ -182,11 +182,22 @@
         </span>
     
     
+        <span class="article-tags article-meta-item">
+            <i class="fas fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/DB/">DB</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
 
     
     
         <span class="article-wordcount article-meta-item">
-            <i class="fas fa-file-word"></i>&nbsp;<span>2 Words</span>
+            <i class="fas fa-file-word"></i>&nbsp;<span>247 Words</span>
         </span>
     
     
@@ -203,7 +214,19 @@
         
 
         <div class="article-content markdown-body">
-            <h1 id="Multy-process"><a href="#Multy-process" class="headerlink" title="Multy-process"></a>Multy-process</h1>
+            <h1 id="A-general-view"><a href="#A-general-view" class="headerlink" title="A general view"></a>A general view</h1><p>PostgreSQL is the most advantaged Relation Database Management System around the world. It’s a huge system with many complex features. To under the internal mechanism of PostgreSQL must be a chanlange. Let’s start from something much easy to get a whole picture of the system.</p>
+<p>In this post, I will explain:</p>
+<ul>
+<li>how PostgreSQL works;</li>
+<li>the process architecture;</li>
+<li>the system layers;</li>
+</ul>
+<p>PostgrepSQL works as multi-processes: 1 master process, several helper process and worker processes respective to every client.</p>
+<p><img src="./g1.png"></p>
+<p>All processes are all single thread. If you know some services use async io such as nginx and reds, which are epoll driven on linux implementation, that PostgreSQL use multi-process must be out of your mind. Actially, this makes sence, for PostgreSQL is havey on both disk IO and computing, it might take a long time to finish just one query, async io do not allow one job takes such long time or other users be affected.</p>
+<p>When a client comes, the master process (named as “postgres”) just accept the connection and produce a new socket corresponding. Then the master process call Linux <em>fork()</em> to create a new worker process, which serves this client only. And the worker process quits whenever some error occurs or the client close the connection.</p>
+<p>All worker processes, helper processes like BGWriter, Vacuum, Logger, access to the Database files concurrently. In this context of PostgreSQL we call the databases as DB cluster, and we call the tables as relations.</p>
+
         </div>
 
         
@@ -335,7 +358,7 @@
         <aside class="page-aside">
             <div class="post-toc-wrap">
     <div class="post-toc">
-        <ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Multy-process"><span class="nav-number">1.</span> <span class="nav-text">Multy-process</span></a></li></ol>
+        <ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#A-general-view"><span class="nav-number">1.</span> <span class="nav-text">A general view</span></a></li></ol>
     </div>
 </div>
         </aside>
