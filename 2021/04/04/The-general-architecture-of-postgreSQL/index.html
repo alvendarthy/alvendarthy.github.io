@@ -221,9 +221,9 @@
 <li>the process architecture;</li>
 <li>the system layers;</li>
 </ul>
-<p>PostgrepSQL works as multi-processes: 1 master process, several helper process and worker processes respective to every client.</p>
+<p>PostgrepSQL works as multi-processes: 1 master process, several helper processes and worker processes respective to every client.</p>
 <p><img src="./g1.png"></p>
-<p>All processes are all single thread. If you know some services use async io such as nginx and redis, which are epoll driven on linux implementation, that PostgreSQL use multi-process must beyond your expectation. Actially, this makes sence, for PostgreSQL is heavy on both disk IO and computing, it might take a long time to finish just one query, async io do not allow one job takes such long time or other users be affected.</p>
+<p>All processes are single thread. If you know some services use async io such as nginx and redis, which are epoll driven on Linux implementation, that PostgreSQL use multi-process architecture must beyond your expectation. Actially, this makes sence, for PostgreSQL is heavy on both disk IO and computing, it might take a long time to finish just one query, async io do not allow one job takes such long time or other users be affected.</p>
 <p>When a client comes, the master process (named as “postgres”) just accept the connection and produce a new socket corresponding. Then the master process call Linux <em>fork()</em> to create a new worker process, which takes care on the new socket and serves this client ever since. And the worker process quits whenever some error occurs or the client close the connection.</p>
 <p>All worker processes, helper processes like BGWriter, Vacuum, Logger, access to the Database files concurrently. In this context of PostgreSQL we call the databases as DB cluster, and we call the tables as relations.</p>
 
