@@ -207,12 +207,12 @@ var _hmt = _hmt || [];
     
     
         <span class="article-wordcount article-meta-item">
-            <i class="fas fa-file-word"></i>&nbsp;<span>295 Words</span>
+            <i class="fas fa-file-word"></i>&nbsp;<span>600 Words</span>
         </span>
     
     
         <span class="article-min2read article-meta-item">
-            <i class="fas fa-clock"></i>&nbsp;<span>1 Mins</span>
+            <i class="fas fa-clock"></i>&nbsp;<span>3 Mins</span>
         </span>
     
     
@@ -273,6 +273,26 @@ var _hmt = _hmt || [];
 </ul>
 <p>In postgreSQL the most top memory context node is <em>TopMemContext</em>, which’s <em>parent</em> is NULL, in other words it’s the root of this upside down tree like relationship.</p>
 <p>Whenever a context is to be destroyed, the child contexts would be destroyed firstly  by list order. And if any child context also has child contexts, that child contexts would be destroyed ahead. This process invokes Recursively until  all child contexts under the root are destroyed, then the root context itself is destroyed. </p>
+<p>Here is the definition  of <em>MemoryContextData</em>:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">MemoryContextData</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">	NodeTag		type;			<span class="comment">/* identifies exact kind of context */</span></span><br><span class="line">	<span class="comment">/* these two fields are placed here to minimize alignment wastage: */</span></span><br><span class="line">	<span class="keyword">bool</span>		isReset;		<span class="comment">/* T = no space alloced since last reset */</span></span><br><span class="line">	<span class="keyword">bool</span>		allowInCritSection; <span class="comment">/* allow palloc in critical section */</span></span><br><span class="line">	Size		mem_allocated;	<span class="comment">/* track memory allocated for this context */</span></span><br><span class="line">	<span class="keyword">const</span> MemoryContextMethods *methods;	<span class="comment">/* virtual function table */</span></span><br><span class="line">	MemoryContext parent;		<span class="comment">/* NULL if no parent (toplevel context) */</span></span><br><span class="line">	MemoryContext firstchild;	<span class="comment">/* head of linked list of children */</span></span><br><span class="line">	MemoryContext prevchild;	<span class="comment">/* previous child of same parent */</span></span><br><span class="line">	MemoryContext nextchild;	<span class="comment">/* next child of same parent */</span></span><br><span class="line">	<span class="keyword">const</span> <span class="keyword">char</span> *name;			<span class="comment">/* context name (just for debugging) */</span></span><br><span class="line">	<span class="keyword">const</span> <span class="keyword">char</span> *ident;			<span class="comment">/* context ID if any (just for debugging) */</span></span><br><span class="line">	MemoryContextCallback *reset_cbs;	<span class="comment">/* list of reset/delete callbacks */</span></span><br><span class="line">&#125; MemoryContextData;</span><br></pre></td></tr></table></figure>
+
+<p>The most important members are:</p>
+<ul>
+<li>parent;</li>
+<li>firstchild;</li>
+<li>prevchild and nextchild, obviously they are linked queue members;</li>
+</ul>
+<p>The <em>MemoryContextData</em> make memory blocks connected to each other, while it has nothing to do with memory fragmentation.</p>
+<h1 id="Solve-the-fragmentation-problem"><a href="#Solve-the-fragmentation-problem" class="headerlink" title="Solve the fragmentation problem"></a>Solve the fragmentation problem</h1><p>If the process <em>malloc</em> memory frequently, even they are <em>freeed</em> property, the system performance decreased after hour or days because of memory fragmentation problem. That malloc contiguous memory blocks and try to reuse memory is a good idea. PostgreSQL use <em>AllocBlockData</em> to manage memory blocks.</p>
+<p><img src="U62e3bcae372f481cb8015b7169ec1439o.jpg"></p>
+<p>The block is divided into two parts:</p>
+<ul>
+<li><em>AllocBlockData</em> saves information about this big block;</li>
+<li>Normal memory that will be used later.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">AllocBlockData</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">	AllocSet	aset;			<span class="comment">/* aset that owns this block */</span></span><br><span class="line">	AllocBlock	prev;			<span class="comment">/* prev block in aset&#x27;s blocks list, if any */</span></span><br><span class="line">	AllocBlock	next;			<span class="comment">/* next block in aset&#x27;s blocks list, if any */</span></span><br><span class="line">	<span class="keyword">char</span>	   *freeptr;		<span class="comment">/* start of free space in this block */</span></span><br><span class="line">	<span class="keyword">char</span>	   *endptr;			<span class="comment">/* end of space in this block */</span></span><br><span class="line">&#125;			AllocBlockData;</span><br></pre></td></tr></table></figure>
+
+<p>Blocks are link together with the member <em>prev</em> and <em>next</em>. Of course 1 block is too little for most application, there must be bunch of blocks, these blocks are managed by the <em>AllocSetContext</em> structure. </p>
 
         </div>
 
@@ -425,7 +445,7 @@ var _hmt = _hmt || [];
         <aside class="page-aside">
             <div class="post-toc-wrap">
     <div class="post-toc">
-        <ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#A-tree-like-relationship"><span class="nav-number">1.</span> <span class="nav-text">A tree like relationship</span></a></li></ol>
+        <ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#A-tree-like-relationship"><span class="nav-number">1.</span> <span class="nav-text">A tree like relationship</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Solve-the-fragmentation-problem"><span class="nav-number">2.</span> <span class="nav-text">Solve the fragmentation problem</span></a></li></ol>
     </div>
 </div>
         </aside>
